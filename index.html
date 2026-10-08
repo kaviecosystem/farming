@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Farming Recovery Phase II</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.2/ethers.umd.min.js"></script>
+<style>
+  :root {
+    --ink: #15171F;
+    --panel: #1B1E28;
+    --panel-raised: #21242F;
+    --line: #2E323F;
+    --brass: #C89B5C;
+    --brass-dim: #8E7548;
+    --text: #EDEAE4;
+    --muted: #8A8F9C;
+    --ok: #7CA98A;
+    --err: #CB7A6E;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ink);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+  }
+
+  .wrap {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 56px 24px 96px;
+  }
+
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 28px;
+    margin-bottom: 36px;
+    gap: 16px;
+    flex-wrap: wrap;
+    position: relative;
+  }
+
+  .brand {
+    font-family: 'Fraunces', serif;
+    font-size: 32px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+  }
+  .brand span { color: var(--brass); }
+
+  .wallet-area { position: relative; }
+
+  .wallet-pill {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 8px 16px;
+    cursor: pointer;
+    background: transparent;
+    transition: border-color .15s ease, color .15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .wallet-pill:hover { border-color: var(--brass-dim); color: var(--text); }
+  .wallet-pill.connected { color: var(--ok); border-color: var(--ok); }
+  .wallet-pill .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--ok); display: none;
+  }
+  .wallet-pill.connected .dot { display: inline-block; }
+
+  .wallet-menu {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: calc(100% + 8px);
+    background: var(--panel-raised);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 16px;
+    width: 260px;
+    max-width: calc(100vw - 48px);
+    z-index: 10;
+  }
+  .wallet-menu.open { display: block; }
+  .wallet-menu .row-line {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  .wallet-menu .addr-full {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--text);
+    word-break: break-all;
+    cursor: pointer;
+  }
+  .wallet-menu .label { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+  .wallet-menu .balance { font-family: 'Fraunces', serif; font-size: 20px; color: var(--brass); }
+  .wallet-menu hr { border: none; border-top: 1px solid var(--line); margin: 12px 0; }
+  .wallet-menu .disconnect {
+    width: 100%; background: transparent; border: 1px solid var(--line);
+    color: var(--err); border-radius: 6px; padding: 9px; font-size: 13px; cursor: pointer;
+  }
+  .wallet-menu .disconnect:hover { border-color: var(--err); }
+  .copy-hint { font-size: 10px; color: var(--muted); }
+
+  .tabs {
+    display: flex;
+    gap: 28px;
+    margin-bottom: 32px;
+  }
+  .tab {
+    font-size: 15px;
+    color: var(--muted);
+    cursor: pointer;
+    padding-bottom: 10px;
+    border-bottom: 2px solid transparent;
+  }
+  .tab.active { color: var(--text); border-bottom-color: var(--brass); }
+
+  .view { display: none; }
+  .view.active { display: block; }
+
+  .field { margin-bottom: 20px; }
+  .field label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 8px; }
+  .field input, .card input {
+    width: 100%;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 12px 14px;
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 14px;
+  }
+  .field input:focus, .card input:focus { outline: none; border-color: var(--brass); }
+
+  .btn {
+    background: var(--brass);
+    color: #1B1E28;
+    border: none;
+    border-radius: 6px;
+    padding: 13px 22px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    width: 100%;
+    margin-top: 6px;
+    transition: opacity .15s ease;
+  }
+  .btn:hover { opacity: 0.88; }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  .btn.secondary {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--line);
+    font-weight: 500;
+    width: auto;
+  }
+  .btn.secondary:hover { border-color: var(--brass-dim); }
+  .btn.danger { background: transparent; color: var(--err); border: 1px solid var(--err); }
+
+  .toolbar {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+  .toolbar input[type="text"] {
+    flex: 1;
+    min-width: 180px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 10px 12px;
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+  }
+  .toolbar input[type="text"]:focus { outline: none; border-color: var(--brass); }
+
+  .status { font-size: 13px; margin-top: 14px; line-height: 1.5; word-break: break-word; }
+  .status:empty { display: none; }
+  .status.ok { color: var(--ok); }
+  .status.err { color: var(--err); }
+  .status.pending { color: var(--muted); }
+
+  .info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+  .info-box {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 14px 16px;
+  }
+  .info-box .label { font-size: 11px; color: var(--muted); margin-bottom: 6px; }
+  .info-box .value {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    color: var(--text);
+    word-break: break-all;
+  }
+
+  .section-title {
+    font-family: 'Fraunces', serif;
+    font-size: 20px;
+    font-weight: 500;
+    margin: 36px 0 16px;
+  }
+
+  .card-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .card {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+  }
+  .card .label { font-size: 13px; color: var(--text); margin-bottom: 4px; font-weight: 500; }
+  .card .hint { font-size: 12px; color: var(--muted); margin-bottom: 12px; line-height: 1.5; }
+  .card .btn { margin-top: 10px; }
+  .card .status { margin-top: 10px; font-size: 12px; }
+
+  .summary { display: flex; gap: 36px; margin-bottom: 28px; flex-wrap: wrap; }
+  .summary .item .num { font-family: 'Fraunces', serif; font-size: 26px; color: var(--brass); }
+  .summary .item .label { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th {
+    text-align: left; font-weight: 500; color: var(--muted);
+    border-bottom: 1px solid var(--line); padding: 10px 8px;
+  }
+  td {
+    padding: 12px 8px; border-bottom: 1px solid var(--line);
+    font-family: 'IBM Plex Mono', monospace; color: var(--text);
+  }
+  tr:last-child td { border-bottom: none; }
+  td.copyable { cursor: pointer; }
+  td.copyable:hover { color: var(--brass); }
+
+  .empty { color: var(--muted); font-size: 14px; padding: 24px 0; }
+  .note { font-size: 12.5px; color: var(--muted); line-height: 1.6; margin-top: 24px; }
+
+  @media (max-width: 600px) {
+    .wrap { padding: 32px 16px 64px; }
+    header { padding-bottom: 20px; margin-bottom: 24px; }
+    .brand { font-size: 24px; }
+    .wallet-pill { padding: 9px 14px; font-size: 12px; }
+    .tabs {
+      gap: 20px;
+      margin-bottom: 24px;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      white-space: nowrap;
+    }
+    .tab { font-size: 14px; flex: 0 0 auto; }
+    .btn, .btn.secondary { padding: 14px 20px; font-size: 15px; }
+    .btn.secondary { width: 100%; }
+    .toolbar { flex-direction: column; align-items: stretch; }
+    .toolbar input[type="text"] { width: 100%; }
+    .info-grid, .card-grid { grid-template-columns: 1fr; }
+    .summary { gap: 24px; }
+    .wallet-menu { width: 260px; right: -8px; }
+    table { font-size: 12px; }
+    th, td { padding: 10px 6px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="brand">Farming Recovery <span>Phase II</span></div>
+    <div class="wallet-area">
+      <button class="wallet-pill" id="connectBtn"><span class="dot"></span><span id="walletLabel">Connect wallet</span></button>
+      <div class="wallet-menu" id="walletMenu">
+        <div class="row-line">
+          <div>
+            <div class="label">Connected wallet</div>
+            <div class="addr-full" id="menuAddr">—</div>
+            <div class="copy-hint" id="copyHint">Click address to copy</div>
+          </div>
+        </div>
+        <div class="label">KAVI balance</div>
+        <div class="balance" id="menuBalance">—</div>
+        <hr>
+        <button class="disconnect" id="disconnectBtn">Disconnect</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="tabs">
+    <div class="tab active" data-view="user">Sign In</div>
+    <div class="tab" data-view="admin" id="adminTab" style="display:none;">Admin</div>
+  </div>
+
+  <div class="view active" id="view-user">
+    <div class="info-box" style="margin-bottom: 24px;">
+      <div class="label">KAVI token contract</div>
+      <div class="value" id="tokenAddrBox">—</div>
+    </div>
+    <div class="field">
+      <label>ID number</label>
+      <input type="text" id="idNo" placeholder="e.g. KA123456" autocomplete="off" />
+    </div>
+    <button class="btn" id="signInBtn">Approve &amp; Sign In</button>
+    <div class="status" id="userStatus"></div>
+    <div class="note">
+      Farming Recovery Phase II: Sign in from your farming wallet only, to recover your farming tokens till 20 October otherwise your account will be closed forever. You will get your farming tokens in your escrow wallet after 20 October. Please make sure you have enough KAVI in your wallet to pay the sign-in fee.
+    </div>
+  </div>
+
+  <div class="view" id="view-admin">
+
+    <div id="acceptCard" class="card" style="display:none; margin-bottom: 24px;">
+      <div class="label">Pending admin transfer</div>
+      <div class="hint">This wallet has been nominated as the new admin. Accept to take control of the contract.</div>
+      <button class="btn" id="acceptAdminBtn">Accept admin role</button>
+      <div class="status" id="acceptStatus"></div>
+    </div>
+
+    <div class="admin-only">
+      <div class="info-grid">
+        <div class="info-box">
+          <div class="label">Admin address</div>
+          <div class="value" id="adminAddrBox">—</div>
+        </div>
+        <div class="info-box">
+          <div class="label">Pending admin</div>
+          <div class="value" id="pendingAdminBox">—</div>
+        </div>
+        <div class="info-box">
+          <div class="label">Receiver wallet</div>
+          <div class="value" id="receiverBox">—</div>
+        </div>
+        <div class="info-box">
+          <div class="label">Contract status</div>
+          <div class="value" id="pausedBox">—</div>
+        </div>
+        <div class="info-box">
+          <div class="label">Current sign-in fee</div>
+          <div class="value" id="feeBox">—</div>
+        </div>
+        <div class="info-box">
+          <div class="label">Maximum fee (fixed)</div>
+          <div class="value" id="maxFeeBox">—</div>
+        </div>
+      </div>
+
+      <div class="section-title">Settings</div>
+      <div class="card-grid">
+        <div class="card">
+          <div class="label">Sign-in fee</div>
+          <div class="hint">New fee in KAVI. Cannot exceed the maximum fee.</div>
+          <input type="text" id="newFeeInput" placeholder="e.g. 10" inputmode="decimal" />
+          <button class="btn" id="setFeeBtn">Update fee</button>
+          <div class="status" id="feeStatus"></div>
+        </div>
+        <div class="card">
+          <div class="label">Receiver wallet</div>
+          <div class="hint">Wallet that receives all sign-in fees.</div>
+          <input type="text" id="newReceiverInput" placeholder="0x…" />
+          <button class="btn" id="setReceiverBtn">Update receiver</button>
+          <div class="status" id="receiverStatus"></div>
+        </div>
+        <div class="card">
+          <div class="label">Pause sign-ins</div>
+          <div class="hint">While paused, no new sign-ins are accepted.</div>
+          <button class="btn secondary" id="togglePauseBtn" style="width:100%;">Pause</button>
+          <div class="status" id="pauseStatus"></div>
+        </div>
+        <div class="card">
+          <div class="label">Reset a user</div>
+          <div class="hint">Frees the wallet and its ID so they can sign in again. Fee is not refunded.</div>
+          <input type="text" id="resetUserInput" placeholder="0x… user wallet" />
+          <button class="btn danger" id="resetUserBtn">Reset user</button>
+          <div class="status" id="resetStatus"></div>
+        </div>
+        <div class="card">
+          <div class="label">Transfer admin</div>
+          <div class="hint">Two steps: nominate here, then the new wallet must accept from its own Admin tab.</div>
+          <input type="text" id="newAdminInput" placeholder="0x… new admin" />
+          <button class="btn danger" id="transferAdminBtn">Nominate new admin</button>
+          <div class="status" id="transferStatus"></div>
+        </div>
+        <div class="card">
+          <div class="label">Check an ID</div>
+          <div class="hint">Find out whether an ID number has already been used, and by which wallet.</div>
+          <input type="text" id="checkIdInput" placeholder="e.g. KA123456" autocomplete="off" />
+          <button class="btn secondary" id="checkIdBtn" style="width:100%;">Check ID</button>
+          <div class="status" id="checkIdStatus"></div>
+        </div>
+      </div>
+
+      <div class="section-title">Sign-in records</div>
+      <div class="summary">
+        <div class="item"><div class="num" id="totalCount">—</div><div class="label">Total sign-ins</div></div>
+        <div class="item"><div class="num" id="totalTokens">—</div><div class="label">Total KAVI collected</div></div>
+      </div>
+      <div class="toolbar">
+        <button class="btn secondary" id="loadRecordsBtn">Load records</button>
+        <button class="btn secondary" id="exportBtn">Export CSV</button>
+        <input type="text" id="searchBox" placeholder="Filter by wallet or ID…" />
+      </div>
+      <div class="status" id="adminStatus"></div>
+      <div style="overflow-x:auto; margin-top: 12px;">
+        <table id="recordsTable" style="display:none;">
+          <thead><tr><th>#</th><th>Wallet</th><th>ID No.</th><th>Tokens</th><th>Time</th></tr></thead>
+          <tbody id="recordsBody"></tbody>
+        </table>
+        <div class="empty" id="emptyState">Click "Load records" above.</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const CONTRACT_ADDR = '0x68d4630cC9733BAf5d5DEcd59E036CAc9F51Be71';
+const DEFAULT_TOKEN_ADDR = '0xce2a45a803a48295c2da93daa4db72397ce75f5d';
+const PAGE_SIZE = 200;
+
+const RECORD = 'tuple(address userWallet, string idNo, uint256 tokenAmount, uint256 timestamp)';
+const ABI = [
+  'function signIn(string idNo, uint256 maxFee)',
+  'function admin() view returns (address)',
+  'function pendingAdmin() view returns (address)',
+  'function receiverWallet() view returns (address)',
+  'function signInFee() view returns (uint256)',
+  'function maxSignInFee() view returns (uint256)',
+  'function paused() view returns (bool)',
+  'function kaviToken() view returns (address)',
+  'function idOwner(string idNo) view returns (address)',
+  'function hasSignedIn(address user) view returns (bool)',
+  'function isIdUsed(string idNo) view returns (bool)',
+  'function getTotalSignIns() view returns (uint256)',
+  `function getRecord(uint256 index) view returns (${RECORD})`,
+  `function getUserRecord(address user) view returns (${RECORD})`,
+  `function getRecords(uint256 offset, uint256 limit) view returns (${RECORD}[])`,
+  'function setSignInFee(uint256 newFee)',
+  'function setReceiverWallet(address newReceiver)',
+  'function setPaused(bool _paused)',
+  'function resetUser(address user)',
+  'function transferAdmin(address newAdmin)',
+  'function acceptAdmin()',
+  'error NotAdmin()',
+  'error NotPendingAdmin()',
+  'error ZeroAddress()',
+  'error InvalidId()',
+  'error AlreadySignedIn()',
+  'error IdAlreadyUsed()',
+  'error NotSignedIn()',
+  'error FeeTooHigh()',
+  'error FeeChanged()',
+  'error TokenTransferFailed()',
+  'error Paused()'
+];
+const ERC20_ABI = [
+  'function approve(address spender, uint256 amount) external returns (bool)',
+  'function allowance(address owner, address spender) view returns (uint256)',
+  'function balanceOf(address account) view returns (uint256)',
+  'function decimals() view returns (uint8)'
+];
+
+const ERROR_TEXT = {
+  NotAdmin: 'Only the admin wallet can do this.',
+  NotPendingAdmin: 'This wallet is not the pending admin.',
+  ZeroAddress: 'Address cannot be empty.',
+  InvalidId: 'Invalid ID. Use 1–64 letters, numbers or symbols, without spaces.',
+  AlreadySignedIn: 'This wallet has already signed in.',
+  IdAlreadyUsed: 'This ID has already been used for sign-in.',
+  NotSignedIn: 'This wallet has not signed in.',
+  FeeTooHigh: 'Fee is higher than the maximum allowed fee.',
+  FeeChanged: 'The sign-in fee was changed. Please refresh and try again.',
+  TokenTransferFailed: 'KAVI transfer failed. Check your balance and approval.',
+  Paused: 'Sign-ins are paused right now.'
+};
+
+const iface = new ethers.Interface(ABI);
+
+let provider, signer, userAddress, readContract;
+let tokenAddr = DEFAULT_TOKEN_ADDR;
+let tokenDecimals = 18;
+let currentFee = null;
+let maxFee = null;
+let isPaused = false;
+let alreadySignedIn = false;
+let allRecordsCache = [];
+
+const el = (id) => document.getElementById(id);
+const short = (a) => a ? a.slice(0, 6) + '…' + a.slice(-4) : '—';
+const fmt = (v) => Number(ethers.formatUnits(v, tokenDecimals)).toLocaleString(undefined, { maximumFractionDigits: 6 });
+const isZero = (a) => !a || a === ethers.ZeroAddress;
+
+const normalizeId = (s) => s.trim().toUpperCase().replace(/\s+/g, '');
+const isValidId = (s) => /^[\x21-\x7E]{1,64}$/.test(s);
+const contractReady = () => ethers.isAddress(CONTRACT_ADDR);
+
+const setStatus = (id, msg, kind) => {
+  const n = el(id);
+  n.textContent = msg;
+  n.className = 'status ' + (kind || '');
+};
+
+function friendlyError(err) {
+  if (err?.code === 'ACTION_REJECTED' || err?.info?.error?.code === 4001) return 'Transaction rejected in wallet.';
+  let name = err?.revert?.name;
+  const candidates = [err?.data, err?.info?.error?.data, err?.error?.data];
+  for (const d of candidates) {
+    if (name) break;
+    const hex = typeof d === 'string' ? d : d?.data;
+    if (typeof hex === 'string' && hex.startsWith('0x')) {
+      try { name = iface.parseError(hex)?.name; } catch (_) {}
+    }
+  }
+  if (name && ERROR_TEXT[name]) return ERROR_TEXT[name];
+  return err?.shortMessage || err?.reason || err?.message || 'Something went wrong.';
+}
+
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    tab.classList.add('active');
+    el('view-' + tab.dataset.view).classList.add('active');
+  });
+});
+
+async function initRead() {
+  if (!contractReady()) {
+    el('tokenAddrBox').textContent = tokenAddr;
+    setStatus('userStatus', 'Sign-in contract address is not set yet.', 'err');
+    el('signInBtn').disabled = true;
+    return;
+  }
+  if (!window.ethereum) {
+    el('tokenAddrBox').textContent = tokenAddr;
+    return;
+  }
+  provider = provider || new ethers.BrowserProvider(window.ethereum);
+  readContract = new ethers.Contract(CONTRACT_ADDR, ABI, provider);
+  try { tokenAddr = await readContract.kaviToken(); } catch (_) {}
+  el('tokenAddrBox').textContent = tokenAddr;
+  try {
+    const t = new ethers.Contract(tokenAddr, ERC20_ABI, provider);
+    tokenDecimals = Number(await t.decimals());
+  } catch (_) {}
+  await refreshFeeState();
+}
+
+async function refreshFeeState() {
+  if (!readContract) return;
+  try {
+    [currentFee, maxFee, isPaused] = await Promise.all([
+      readContract.signInFee(),
+      readContract.maxSignInFee(),
+      readContract.paused()
+    ]);
+    updateSignInButton();
+  } catch (e) {
+    console.error(e);
+    setStatus('userStatus', 'Could not read the sign-in contract. Make sure your wallet is on the correct network.', 'err');
+  }
+}
+
+function updateSignInButton() {
+  const btn = el('signInBtn');
+  if (currentFee === null) return;
+  const feeText = currentFee === 0n ? 'Free' : fmt(currentFee) + ' KAVI';
+  if (alreadySignedIn) {
+    btn.textContent = 'Already signed in';
+    btn.disabled = true;
+  } else if (isPaused) {
+    btn.textContent = 'Sign-ins paused';
+    btn.disabled = true;
+  } else {
+    btn.textContent = currentFee === 0n ? 'Sign In (Free)' : `Approve & Sign In (${feeText})`;
+    btn.disabled = false;
+  }
+}
+
+async function connectWallet() {
+  if (!window.ethereum) {
+    setStatus('userStatus', 'MetaMask (or another wallet) was not found.', 'err');
+    return;
+  }
+  provider = new ethers.BrowserProvider(window.ethereum);
+  await provider.send('eth_requestAccounts', []);
+  signer = await provider.getSigner();
+  userAddress = await signer.getAddress();
+  if (!readContract) await initRead();
+  else readContract = new ethers.Contract(CONTRACT_ADDR, ABI, provider);
+  await refreshWalletUI();
+}
+
+function disconnectWallet() {
+  signer = null;
+  userAddress = null;
+  alreadySignedIn = false;
+  el('walletLabel').textContent = 'Connect wallet';
+  el('connectBtn').classList.remove('connected');
+  el('walletMenu').classList.remove('open');
+  el('menuAddr').textContent = '—';
+  el('menuBalance').textContent = '—';
+  el('adminTab').style.display = 'none';
+  setStatus('userStatus', '', '');
+  updateSignInButton();
+  document.querySelector('.tab[data-view="user"]').click();
+}
+
+async function refreshWalletUI() {
+  if (!userAddress) return;
+  el('walletLabel').textContent = short(userAddress);
+  el('connectBtn').classList.add('connected');
+  el('menuAddr').textContent = userAddress;
+
+  try {
+    const token = new ethers.Contract(tokenAddr, ERC20_ABI, provider);
+    const bal = await token.balanceOf(userAddress);
+    el('menuBalance').textContent = fmt(bal) + ' KAVI';
+  } catch (_) {
+    el('menuBalance').textContent = '—';
+  }
+
+  await refreshFeeState();
+  await checkUserRecord();
+  await checkAdminRole();
+}
+
+async function checkUserRecord() {
+  try {
+    alreadySignedIn = await readContract.hasSignedIn(userAddress);
+    if (alreadySignedIn) {
+      const r = await readContract.getUserRecord(userAddress);
+      const time = new Date(Number(r.timestamp) * 1000).toLocaleString();
+      setStatus('userStatus', `This wallet signed in on ${time}.`, 'ok');
+    } else if (el('userStatus').classList.contains('ok')) {
+      setStatus('userStatus', '', '');
+    }
+  } catch (_) {
+    alreadySignedIn = false;
+  }
+  updateSignInButton();
+}
+
+async function checkAdminRole() {
+  try {
+    const [adminAddr, pendingAddr] = await Promise.all([readContract.admin(), readContract.pendingAdmin()]);
+    const me = userAddress.toLowerCase();
+    const isAdmin = adminAddr.toLowerCase() === me;
+    const isPending = !isZero(pendingAddr) && pendingAddr.toLowerCase() === me;
+
+    el('adminTab').style.display = (isAdmin || isPending) ? 'block' : 'none';
+    document.querySelectorAll('.admin-only').forEach(n => { n.style.display = isAdmin ? 'block' : 'none'; });
+    el('acceptCard').style.display = isPending ? 'flex' : 'none';
+
+    if (!isAdmin && !isPending && el('adminTab').classList.contains('active')) {
+      document.querySelector('.tab[data-view="user"]').click();
+    }
+    if (isAdmin) await loadOverview();
+  } catch (_) {
+    el('adminTab').style.display = 'none';
+  }
+}
+
+async function loadOverview() {
+  try {
+    const [adminAddr, pendingAddr, receiver, fee, mFee, p, total] = await Promise.all([
+      readContract.admin(),
+      readContract.pendingAdmin(),
+      readContract.receiverWallet(),
+      readContract.signInFee(),
+      readContract.maxSignInFee(),
+      readContract.paused(),
+      readContract.getTotalSignIns()
+    ]);
+    currentFee = fee; maxFee = mFee; isPaused = p;
+    el('adminAddrBox').textContent = adminAddr;
+    el('pendingAdminBox').textContent = isZero(pendingAddr) ? 'None' : pendingAddr;
+    el('receiverBox').textContent = receiver;
+    el('feeBox').textContent = fmt(fee) + ' KAVI';
+    el('maxFeeBox').textContent = fmt(mFee) + ' KAVI';
+    el('pausedBox').textContent = p ? 'Paused' : 'Active';
+    el('pausedBox').style.color = p ? 'var(--err)' : 'var(--ok)';
+    el('togglePauseBtn').textContent = p ? 'Unpause sign-ins' : 'Pause sign-ins';
+    el('totalCount').textContent = total.toString();
+    updateSignInButton();
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+async function sendAdminTx(statusId, build, okMsg) {
+  try {
+    if (!signer) await connectWallet();
+    if (!signer) return;
+    setStatus(statusId, 'Please confirm in your wallet…', 'pending');
+    const c = new ethers.Contract(CONTRACT_ADDR, ABI, signer);
+    const tx = await build(c);
+    setStatus(statusId, 'Waiting for confirmation…', 'pending');
+    await tx.wait();
+    setStatus(statusId, okMsg, 'ok');
+    await refreshWalletUI();
+  } catch (err) {
+    console.error(err);
+    setStatus(statusId, friendlyError(err), 'err');
+  }
+}
+
+el('connectBtn').addEventListener('click', async () => {
+  if (!userAddress) {
+    try { await connectWallet(); } catch (err) { setStatus('userStatus', friendlyError(err), 'err'); }
+  } else {
+    el('walletMenu').classList.toggle('open');
+  }
+});
+
+document.addEventListener('click', (e) => {
+  const area = document.querySelector('.wallet-area');
+  if (area && !area.contains(e.target)) el('walletMenu').classList.remove('open');
+});
+
+el('menuAddr').addEventListener('click', async () => {
+  if (!userAddress) return;
+  await navigator.clipboard.writeText(userAddress);
+  el('copyHint').textContent = 'Copied!';
+  setTimeout(() => { el('copyHint').textContent = 'Click address to copy'; }, 1500);
+});
+
+el('disconnectBtn').addEventListener('click', disconnectWallet);
+
+if (window.ethereum) {
+  window.ethereum.on('accountsChanged', async (accounts) => {
+    if (accounts.length === 0) disconnectWallet();
+    else await connectWallet();
+  });
+  window.ethereum.on('chainChanged', () => window.location.reload());
+}
+
+el('signInBtn').addEventListener('click', async () => {
+  const btn = el('signInBtn');
+  try {
+    if (!signer) await connectWallet();
+    if (!signer) return;
+
+    if (!contractReady()) {
+      setStatus('userStatus', 'Sign-in contract address is not set yet.', 'err');
+      return;
+    }
+    const idNo = normalizeId(el('idNo').value);
+    if (!isValidId(idNo)) {
+      setStatus('userStatus', ERROR_TEXT.InvalidId, 'err');
+      return;
+    }
+
+    btn.disabled = true;
+    setStatus('userStatus', 'Checking…', 'pending');
+
+    const [paused, signed, usedBy, fee] = await Promise.all([
+      readContract.paused(),
+      readContract.hasSignedIn(userAddress),
+      readContract.idOwner(idNo),
+      readContract.signInFee()
+    ]);
+    if (paused) { setStatus('userStatus', ERROR_TEXT.Paused, 'err'); return; }
+    if (signed) { setStatus('userStatus', ERROR_TEXT.AlreadySignedIn, 'err'); await checkUserRecord(); return; }
+    if (!isZero(usedBy)) { setStatus('userStatus', ERROR_TEXT.IdAlreadyUsed, 'err'); return; }
+
+    if (fee > 0n) {
+      const token = new ethers.Contract(tokenAddr, ERC20_ABI, signer);
+      const bal = await token.balanceOf(userAddress);
+      if (bal < fee) {
+        setStatus('userStatus', `Not enough KAVI. You need ${fmt(fee)} KAVI.`, 'err');
+        return;
+      }
+      const allowance = await token.allowance(userAddress, CONTRACT_ADDR);
+      if (allowance < fee) {
+        setStatus('userStatus', 'Requesting approval, please confirm in your wallet…', 'pending');
+        const approveTx = await token.approve(CONTRACT_ADDR, fee);
+        setStatus('userStatus', 'Waiting for approval confirmation…', 'pending');
+        await approveTx.wait();
+      }
+    }
+
+    setStatus('userStatus', 'Sending sign-in transaction, please confirm in your wallet…', 'pending');
+    const c = new ethers.Contract(CONTRACT_ADDR, ABI, signer);
+    const tx = await c.signIn(idNo, fee);
+    setStatus('userStatus', 'Waiting for confirmation…', 'pending');
+    await tx.wait();
+
+    el('idNo').value = '';
+    setStatus('userStatus', fee > 0n ? `Sign-in successful. ${fmt(fee)} KAVI paid.` : 'Sign-in successful.', 'ok');
+    await refreshWalletUI();
+  } catch (err) {
+    console.error(err);
+    setStatus('userStatus', friendlyError(err), 'err');
+  } finally {
+    updateSignInButton();
+  }
+});
+
+el('setFeeBtn').addEventListener('click', () => {
+  const v = el('newFeeInput').value.trim();
+  let newFee;
+  try { newFee = ethers.parseUnits(v || 'x', tokenDecimals); }
+  catch (_) { setStatus('feeStatus', 'Enter a valid number, e.g. 10 or 2.5', 'err'); return; }
+  if (maxFee !== null && newFee > maxFee) {
+    setStatus('feeStatus', `Fee cannot be more than ${fmt(maxFee)} KAVI.`, 'err');
+    return;
+  }
+  sendAdminTx('feeStatus', c => c.setSignInFee(newFee), `Fee updated to ${fmt(newFee)} KAVI.`)
+    .then(() => { el('newFeeInput').value = ''; });
+});
+
+el('setReceiverBtn').addEventListener('click', () => {
+  const a = el('newReceiverInput').value.trim();
+  if (!ethers.isAddress(a)) { setStatus('receiverStatus', 'Enter a valid wallet address.', 'err'); return; }
+  sendAdminTx('receiverStatus', c => c.setReceiverWallet(a), 'Receiver wallet updated.')
+    .then(() => { el('newReceiverInput').value = ''; });
+});
+
+el('togglePauseBtn').addEventListener('click', () => {
+  const next = !isPaused;
+  sendAdminTx('pauseStatus', c => c.setPaused(next), next ? 'Sign-ins paused.' : 'Sign-ins resumed.');
+});
+
+el('resetUserBtn').addEventListener('click', async () => {
+  const a = el('resetUserInput').value.trim();
+  if (!ethers.isAddress(a)) { setStatus('resetStatus', 'Enter a valid wallet address.', 'err'); return; }
+  try {
+    if (!(await readContract.hasSignedIn(a))) { setStatus('resetStatus', ERROR_TEXT.NotSignedIn, 'err'); return; }
+  } catch (_) {}
+  if (!confirm(`Reset sign-in for ${a}? The fee will not be refunded.`)) return;
+  sendAdminTx('resetStatus', c => c.resetUser(a), 'User reset. They can sign in again.')
+    .then(() => { el('resetUserInput').value = ''; });
+});
+
+el('transferAdminBtn').addEventListener('click', () => {
+  const a = el('newAdminInput').value.trim();
+  if (!ethers.isAddress(a)) { setStatus('transferStatus', 'Enter a valid wallet address.', 'err'); return; }
+  if (!confirm(`Nominate ${a} as the new admin? They must accept before it takes effect.`)) return;
+  sendAdminTx('transferStatus', c => c.transferAdmin(a), 'Nominated. The new wallet must now accept from its Admin tab.')
+    .then(() => { el('newAdminInput').value = ''; });
+});
+
+el('acceptAdminBtn').addEventListener('click', () => {
+  sendAdminTx('acceptStatus', c => c.acceptAdmin(), 'You are now the admin.');
+});
+
+el('checkIdBtn').addEventListener('click', async () => {
+  const idNo = normalizeId(el('checkIdInput').value);
+  if (!isValidId(idNo)) { setStatus('checkIdStatus', ERROR_TEXT.InvalidId, 'err'); return; }
+  try {
+    const usedBy = await readContract.idOwner(idNo);
+    if (isZero(usedBy)) setStatus('checkIdStatus', `${idNo} has not been used yet.`, 'ok');
+    else setStatus('checkIdStatus', `Already used by ${usedBy}`, 'err');
+  } catch (err) {
+    setStatus('checkIdStatus', friendlyError(err), 'err');
+  }
+});
+
+function renderAdminTable(records) {
+  const body = el('recordsBody');
+  body.innerHTML = '';
+  if (records.length === 0) {
+    el('recordsTable').style.display = 'none';
+    el('emptyState').style.display = 'block';
+    el('emptyState').textContent = allRecordsCache.length ? 'No records match this filter.' : 'No sign-in records yet.';
+    return;
+  }
+  el('recordsTable').style.display = 'table';
+  el('emptyState').style.display = 'none';
+  records.forEach(r => {
+    const tr = document.createElement('tr');
+    const cells = [
+      String(r.index + 1),
+      short(r.userWallet),
+      r.idNo,
+      fmt(r.tokenAmount) + ' KAVI',
+      new Date(Number(r.timestamp) * 1000).toLocaleString()
+    ];
+    cells.forEach((text, i) => {
+      const td = document.createElement('td');
+      td.textContent = text;
+      if (i === 1 || i === 2) {
+        td.className = 'copyable';
+        td.title = 'Click to copy';
+        const full = i === 1 ? r.userWallet : r.idNo;
+        td.addEventListener('click', async () => {
+          await navigator.clipboard.writeText(full);
+          setStatus('adminStatus', (i === 1 ? 'Wallet address' : 'ID number') + ' copied.', 'ok');
+        });
+      }
+      tr.appendChild(td);
+    });
+    body.appendChild(tr);
+  });
+}
+
+el('loadRecordsBtn').addEventListener('click', async () => {
+  try {
+    if (!signer) await connectWallet();
+    if (!signer) return;
+
+    setStatus('adminStatus', 'Loading records…', 'pending');
+    const total = Number(await readContract.getTotalSignIns());
+    const records = [];
+    for (let offset = 0; offset < total; offset += PAGE_SIZE) {
+      const page = await readContract.getRecords(offset, PAGE_SIZE);
+      page.forEach((r, i) => records.push({
+        index: offset + i,
+        userWallet: r.userWallet,
+        idNo: r.idNo,
+        tokenAmount: r.tokenAmount,
+        timestamp: r.timestamp
+      }));
+      setStatus('adminStatus', `Loading records… ${records.length} / ${total}`, 'pending');
+    }
+
+    let totalTokens = 0n;
+    records.forEach(r => { totalTokens += r.tokenAmount; });
+    el('totalCount').textContent = total.toString();
+    el('totalTokens').textContent = fmt(totalTokens);
+
+    allRecordsCache = records;
+    el('searchBox').value = '';
+    renderAdminTable(records);
+    setStatus('adminStatus', `${records.length} records loaded.`, 'ok');
+  } catch (err) {
+    console.error(err);
+    setStatus('adminStatus', friendlyError(err), 'err');
+  }
+});
+
+el('searchBox').addEventListener('input', (e) => {
+  const q = e.target.value.trim().toLowerCase();
+  if (!q) { renderAdminTable(allRecordsCache); return; }
+  const filtered = allRecordsCache.filter(r =>
+    r.userWallet.toLowerCase().includes(q) ||
+    r.idNo.toLowerCase().includes(q)
+  );
+  renderAdminTable(filtered);
+});
+
+el('exportBtn').addEventListener('click', () => {
+  if (allRecordsCache.length === 0) {
+    setStatus('adminStatus', 'Load records before exporting.', 'err');
+    return;
+  }
+  const rows = [['#', 'Wallet', 'ID No.', 'Tokens', 'Timestamp']];
+  allRecordsCache.forEach(r => {
+    rows.push([
+      r.index + 1,
+      r.userWallet,
+      r.idNo,
+      ethers.formatUnits(r.tokenAmount, tokenDecimals),
+      new Date(Number(r.timestamp) * 1000).toISOString()
+    ]);
+  });
+  const csv = rows.map(row => row.map(v => {
+    let s = String(v).replace(/"/g, '""');
+    if (/^[=+\-@]/.test(s)) s = "'" + s;
+    return `"${s}"`;
+  }).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'farming-recovery-phase-2-records.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
+
+(async () => {
+  await initRead();
+  if (window.ethereum) {
+    try {
+      const accounts = await provider.send('eth_accounts', []);
+      if (accounts.length) await connectWallet();
+    } catch (_) {}
+  }
+})();
+</script>
+
+</body>
+</html>
